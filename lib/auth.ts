@@ -6,7 +6,7 @@ function getSalt(username: string): Uint8Array<ArrayBuffer> {
   const encoded = encoder.encode(username.padEnd(16, '0').slice(0, 16))
   const buf = new ArrayBuffer(16)
   new Uint8Array(buf).set(encoded)
-  return new Uint8Array(buf) as unknown as Uint8Array<ArrayBuffer>
+  return new Uint8Array(buf) 
 }
 
 async function hashPin(pin: string, username: string): Promise<string> {

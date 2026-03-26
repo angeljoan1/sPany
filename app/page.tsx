@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable @next/next/no-img-element */
 
 import React, { useState, useCallback, useEffect } from 'react'
 import {
@@ -191,7 +192,7 @@ export default function PasswordManager() {
     if (!editingEntry.service || !editingEntry.username || !editingEntry.password) return
     if (!vaultKey) return
     if (editingEntry.id) {
-      await updateEntry(editingEntry.id, editingEntry, vaultKey)
+      await updateEntry(editingEntry.id!, editingEntry, vaultKey)
       setEntries(prev => prev.map(e => e.id === editingEntry.id ? { ...editingEntry, id: editingEntry.id! } : e))
     } else {
       await createEntry(username, editingEntry, vaultKey)
@@ -523,7 +524,7 @@ export default function PasswordManager() {
                   Cancel·lar
                 </button>
                 <button
-                  onClick={() => handleDeleteEntry(entryToDelete)}
+                  onClick={() => handleDeleteEntry(entryToDelete!)}
                   className="flex-1 px-4 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm"
                 >
                   Eliminar
