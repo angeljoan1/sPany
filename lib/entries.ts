@@ -105,17 +105,29 @@ export async function exportVault(
   return encrypted
 }
 
-// Importa entradas desde un backup
+
+// Importa entradas desde un backup (.txt cifrado)
 export async function importVault(
   username: string,
   encryptedBackup: string,
   vaultKey: CryptoKey
-): Promise<void> {
-  const json = await decrypt(encryptedBackup, vaultKey)
-  const entries = JSON.parse(json) as Entry[]
+): Promise<{ success: boolean; count: number }> {
+  try {
+    // 1. Usamos 'decrypt' (que ya tienes importado arriba)
+    const json = await decrypt(encryptedBackup, vaultKey)
+    const entries = JSON.parse(json) as Entry[]
 
-  for (const entry of entries) {
-    const { id, ...entryWithoutId } = entry
-    await createEntry(username, entryWithoutId, vaultKey)
+    // 2. Metemos cada entrada en la base de datos
+    for (const entry of entries) {
+      // Quitamos el ID para que Supabase genere uno nuevo y no choque
+      const { id, ...entryWithoutId } = entry
+      await createEntry(username, entryWithoutId, vaultKey)
+    }
+
+    // 3. Devolvemos el contador para que el alert de la web funcione
+    return { success: true, count: entries.length }
+  } catch (e) {
+    console.error("Error al importar:", e)
+    throw new Error("No s'ha pogut desxifrar el fitxer. El PIN o l'usuari són incorrectes.")
   }
 }

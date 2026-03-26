@@ -7,9 +7,10 @@ import {
   ArrowLeft, Plus, Search, Download, RefreshCw, Delete,
 } from 'lucide-react'
 import { register, login, checkUserExists, getUsers } from '@/lib/auth'
-import { getEntries, createEntry, updateEntry, deleteEntry, exportVault } from '@/lib/entries'
+import { getEntries, createEntry, updateEntry, deleteEntry, exportVault, importVault } from '@/lib/entries'
 import { createAdminBackup } from '@/lib/admin-actions'
 import { exportKey } from '@/lib/crypto'
+
 
 interface Entry {
   id: string
@@ -48,6 +49,7 @@ export default function PasswordManager() {
     id: undefined, service: '', username: '', password: '', notes: '',
   })
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -68,6 +70,11 @@ export default function PasswordManager() {
     }
     init()
   }, [])
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const showError = useCallback(() => {
     setPinError(true)
@@ -220,6 +227,27 @@ export default function PasswordManager() {
     a.download = 'claus-backup.txt'
     a.click()
     URL.revokeObjectURL(url)
+  }, [vaultKey, username])
+
+  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !vaultKey) return
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      try {
+        const content = event.target?.result as string
+        const result = await importVault(username, content, vaultKey)
+        showToast(`S'han importat ${result.count} claus correctament!`);
+        const loaded = await getEntries(username, vaultKey)
+        setEntries(loaded as Entry[])
+      } catch (err: any) {
+        alert(err.message)
+      }
+    }
+    reader.readAsText(file)
+    // Limpiamos el input para poder volver a usarlo
+    e.target.value = ''
   }, [vaultKey, username])
 
   const handleGeneratePassword = useCallback(() => {
@@ -475,20 +503,20 @@ export default function PasswordManager() {
             </div>
           ))}
 
- {/* ESTADO VACÍO */}
+          {/* ESTADO VACÍO */}
           {filteredEntries.length === 0 && (
             <div className="text-center py-20 flex flex-col items-center justify-center animate-in fade-in duration-500">
-              <img 
-                src="/icon-192.png" 
-                alt="Bóveda buida" 
-                className="w-24 h-24 mb-6 opacity-20 grayscale mix-blend-multiply" 
+              <img
+                src="/icon-192.png"
+                alt="Bóveda buida"
+                className="w-24 h-24 mb-6 opacity-20 grayscale mix-blend-multiply"
               />
               <div className="text-[#666] text-base font-medium">
                 {entries.length === 0 ? 'La teva bóveda està buida' : 'Cap resultat trobat'}
               </div>
               <div className="text-[#999] text-sm mt-2 max-w-xs mx-auto">
-                {entries.length === 0 
-                  ? 'Clica el botó + a dalt a la dreta per començar a guardar les teves claus de forma segura.' 
+                {entries.length === 0
+                  ? 'Clica el botó + a dalt a la dreta per començar a guardar les teves claus de forma segura.'
                   : 'Prova a cercar amb unes altres paraules.'}
               </div>
             </div>
@@ -496,15 +524,30 @@ export default function PasswordManager() {
         </div>
 
         {/* PIE DE PÁGINA CON FIRMA Y EXPORTAR */}
-        <div className="max-w-2xl mx-auto px-4 py-8 border-t border-[rgba(26,26,26,0.06)] flex items-center justify-between">
-          <button onClick={handleExport} className="flex items-center gap-2 text-sm text-[#666] hover:text-[#1A1A1A] transition-colors duration-200">
-            <Download size={16} />
-            Exportar còpia
-          </button>
-          
-          <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity duration-300">
-            <span className="text-xs font-semibold text-[#999] tracking-wider uppercase">sPany</span>
-            <img src="/icon-192.png" alt="sPany logo" className="w-5 h-5 rounded-[4px] grayscale" />
+        <div className="max-w-2xl mx-auto px-4 py-8 border-t border-[rgba(26,26,26,0.06)]">
+          {/* AVISO PREVENTIVO */}
+          <p className="text-[11px] text-[#999] mb-4 text-center uppercase tracking-widest font-medium">
+            Recorda exportar una còpia cada vegada que afegeixis una clau
+          </p>
+
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4">
+              <button onClick={handleExport} className="flex items-center gap-2 text-sm text-[#666] hover:text-[#1A1A1A] transition-colors duration-200">
+                <Download size={16} />
+                Exportar
+              </button>
+
+              <label className="flex items-center gap-2 text-sm text-[#666] hover:text-[#1A1A1A] cursor-pointer transition-colors duration-200">
+                <RefreshCw size={16} />
+                Importar
+                <input type="file" accept=".txt" onChange={handleImport} className="hidden" />
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2 opacity-30">
+              <span className="text-xs font-semibold text-[#999] tracking-wider uppercase">sPany</span>
+              <img src="/icon-192.png" alt="logo" className="w-5 h-5 rounded-[4px] grayscale" />
+            </div>
           </div>
         </div>
 
@@ -537,42 +580,53 @@ export default function PasswordManager() {
     )
   }
 
-        return (
-        <div className="min-h-screen bg-white">
-          <div className="max-w-2xl mx-auto px-4 py-6 flex items-center gap-4 border-b border-[rgba(26,26,26,0.06)]">
-            <button onClick={() => setScreen('list')} aria-label="Tornar" className="p-2 text-[#1A1A1A] hover:bg-[#F7F7F5] rounded-lg transition-all duration-200">
-              <ArrowLeft size={24} />
-            </button>
-            <h1 className="text-2xl font-semibold text-[#1A1A1A]">{editingEntry.id ? 'Editar clau' : 'Nova clau'}</h1>
-          </div>
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="max-w-2xl mx-auto px-4 py-6 flex items-center gap-4 border-b border-[rgba(26,26,26,0.06)]">
+        <button onClick={() => setScreen('list')} aria-label="Tornar" className="p-2 text-[#1A1A1A] hover:bg-[#F7F7F5] rounded-lg transition-all duration-200">
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="text-2xl font-semibold text-[#1A1A1A]">{editingEntry.id ? 'Editar clau' : 'Nova clau'}</h1>
+      </div>
 
-          <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-            <div>
-              <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Servei</label>
-              <input type="text" value={editingEntry.service} onChange={e => setEditingEntry(p => ({ ...p, service: e.target.value }))} placeholder="p.e. Correu" className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Usuari</label>
-              <input type="text" value={editingEntry.username} onChange={e => setEditingEntry(p => ({ ...p, username: e.target.value }))} placeholder="p.e. user@example.com" className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Contrasenya</label>
-              <div className="flex gap-2">
-                <input type={showPassword ? 'text' : 'password'} value={editingEntry.password} onChange={e => setEditingEntry(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" className="flex-1 px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
-                <button onClick={handleGeneratePassword} className="px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] font-medium hover:bg-[#f0f0ed] transition-all duration-200 flex items-center gap-2">
-                  <RefreshCw size={18} />
-                  <span className="hidden sm:inline">Generar</span>
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Notes (opcional)</label>
-              <textarea value={editingEntry.notes} onChange={e => setEditingEntry(p => ({ ...p, notes: e.target.value }))} placeholder="Afegeix totes les notes que creguis convenients..." rows={4} className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200 resize-none" />
-            </div>
-            <button onClick={handleSaveEntry} className="w-full bg-[#1A1A1A] text-white font-semibold py-3 rounded-lg hover:bg-[#333] transition-all duration-200 shadow-sm mt-8">
-              Guardar
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        <div>
+          <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Servei</label>
+          <input type="text" value={editingEntry.service} onChange={e => setEditingEntry(p => ({ ...p, service: e.target.value }))} placeholder="p.e. Correu" className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
+        </div>
+        <div>
+          <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Usuari</label>
+          <input type="text" value={editingEntry.username} onChange={e => setEditingEntry(p => ({ ...p, username: e.target.value }))} placeholder="p.e. user@example.com" className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
+        </div>
+        <div>
+          <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Contrasenya</label>
+          <div className="flex gap-2">
+            <input type={showPassword ? 'text' : 'password'} value={editingEntry.password} onChange={e => setEditingEntry(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" className="flex-1 px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200" />
+            <button onClick={handleGeneratePassword} className="px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] font-medium hover:bg-[#f0f0ed] transition-all duration-200 flex items-center gap-2">
+              <RefreshCw size={18} />
+              <span className="hidden sm:inline">Generar</span>
             </button>
           </div>
         </div>
-        )
+        <div>
+          <label className="text-sm font-semibold text-[#1A1A1A] block mb-2">Notes (opcional)</label>
+          <textarea value={editingEntry.notes} onChange={e => setEditingEntry(p => ({ ...p, notes: e.target.value }))} placeholder="Afegeix totes les notes que creguis convenients..." rows={4} className="w-full px-4 py-3 bg-[#F7F7F5] border border-[rgba(26,26,26,0.06)] rounded-lg text-[#1A1A1A] placeholder-[#999] focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] focus:ring-opacity-20 transition-all duration-200 resize-none" />
+        </div>
+        <button onClick={handleSaveEntry} className="w-full bg-[#1A1A1A] text-white font-semibold py-3 rounded-lg hover:bg-[#333] transition-all duration-200 shadow-sm mt-8">
+          Guardar
+        </button>
+      </div>
+      {notification && (
+  <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg border animate-in fade-in slide-in-from-top-4 duration-300 ${
+    notification.type === 'success' 
+      ? 'bg-white text-[#1A1A1A] border-[rgba(26,26,26,0.08)]' 
+      : 'bg-red-50 text-red-600 border-red-100'
+  }`}>
+    <p className="text-sm font-medium tracking-tight flex items-center gap-2">
+      {notification.type === 'success' ? '✓' : '✕'} {notification.message}
+    </p>
+  </div>
+)}
+    </div>
+  )
 }
