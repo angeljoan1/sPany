@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Spany Vault',
-  description: 'Gestor de contraseñas seguro',
+  title: 'sPany',
+  description: 'Gestor de contrasenyes segur',
   manifest: '/manifest.json', // Enlace al archivo que acabamos de editar
   icons: {
     icon: '/icon-192.png', // Icono para la pestaña del navegador
