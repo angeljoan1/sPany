@@ -5,6 +5,7 @@ import { deriveKey, encrypt, decrypt } from './crypto'
 
 // --- Utilidades Internas del Servidor ---
 function getSalt(username: string): Uint8Array<ArrayBuffer> {
+  const normalizedUsername = username.toLowerCase().trim()
   const encoder = new TextEncoder()
   const encoded = encoder.encode(username.padEnd(16, '0').slice(0, 16))
   const buf = new ArrayBuffer(16)

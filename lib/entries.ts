@@ -14,7 +14,7 @@ async function getUserId(username: string): Promise<string> {
   const { data, error } = await supabase
     .from('users')
     .select('id')
-    .eq('username', username)
+    .eq('username', username.toLowerCase().trim())
     .single()
 
   if (error || !data) throw new Error('Usuario no encontrado')

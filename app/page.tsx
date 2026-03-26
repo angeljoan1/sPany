@@ -56,11 +56,7 @@ export default function PasswordManager() {
       const saved = localStorage.getItem('claus_username')
       if (saved) {
         // Si ya ha entrado antes, le pedimos el PIN directamente
-        setUsername(saved)
-
-        // Asumimos que no es nuevo porque ya estaba en localStorage
-        // Si por algún casual borraran al usuario de la BD pero no del móvil, 
-        // el login fallará y ya gestionaremos ese error.
+        setUsername(saved.toLowerCase().trim())
         setIsNewUser(false)
         setScreen('login')
       } else {
@@ -168,7 +164,7 @@ export default function PasswordManager() {
   }, [pin, isNewUser, pinStep, confirmPin, doUnlock])
 
   const handleSelectUser = useCallback((name: string) => {
-    setUsername(name)
+    setUsername(name.toLowerCase().trim())
     setIsNewUser(false)
     setPin('')
     setPinStep('enter')
@@ -177,7 +173,7 @@ export default function PasswordManager() {
   }, [])
 
   const handleUsernameSubmit = useCallback(async () => {
-    const trimmedName = usernameInput.trim()
+    const trimmedName = usernameInput.toLowerCase().trim()
     if (!trimmedName) return
 
     // Le preguntamos a Supabase si este nombre existe
@@ -327,7 +323,7 @@ export default function PasswordManager() {
           <input
             type="text"
             value={usernameInput}
-            onChange={e => setUsernameInput(e.target.value)}
+            onChange={e => setUsernameInput(e.target.value.toLowerCase())}
             onKeyDown={e => e.key === 'Enter' && handleUsernameSubmit()}
             placeholder="El teu nom"
             autoFocus
