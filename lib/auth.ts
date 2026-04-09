@@ -1,12 +1,13 @@
 import { supabase } from './supabase'
 import { deriveKey, generateVaultKey, exportKey, importKey, encrypt, decrypt } from './crypto'
 
+// Salt derived from username, padded/truncated to 16 bytes
 function getSalt(username: string): Uint8Array<ArrayBuffer> {
   const encoder = new TextEncoder()
   const encoded = encoder.encode(username.padEnd(16, '0').slice(0, 16))
   const buf = new ArrayBuffer(16)
   new Uint8Array(buf).set(encoded)
-  return new Uint8Array(buf) 
+  return new Uint8Array(buf)
 }
 
 async function hashPin(pin: string, username: string): Promise<string> {
@@ -32,13 +33,13 @@ export async function getUsers(): Promise<string[]> {
   return data ? data.map((u) => u.username) : []
 }
 
+// Creates a new user: hashes the PIN, generates a vault key, encrypts it with the PIN key
 export async function register(username: string, pin: string): Promise<CryptoKey> {
   const pinHash = await hashPin(pin, username)
   const salt = getSalt(username)
   const pinKey = await deriveKey(pin, salt)
   const vaultKey = await generateVaultKey()
   const vaultKeyB64 = await exportKey(vaultKey)
-  
   const encryptedVaultKey = await encrypt(vaultKeyB64, pinKey)
 
   const { error } = await supabase.from('users').insert({
@@ -49,9 +50,10 @@ export async function register(username: string, pin: string): Promise<CryptoKey
 
   if (error) throw new Error(error.message)
 
-  return vaultKey // Devolvemos la llave para que page.tsx se encargue del resto
+  return vaultKey
 }
 
+// Verifies the PIN and decrypts the vault key
 export async function login(username: string, pin: string): Promise<CryptoKey> {
   const { data: user, error } = await supabase
     .from('users')
@@ -69,4 +71,3 @@ export async function login(username: string, pin: string): Promise<CryptoKey> {
   const vaultKeyB64 = await decrypt(user.encrypted_vault_key, pinKey)
   return importKey(vaultKeyB64)
 }
-

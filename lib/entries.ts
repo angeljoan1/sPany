@@ -9,7 +9,6 @@ export interface Entry {
   notes?: string
 }
 
-// Obtiene el user_id a partir del username
 async function getUserId(username: string): Promise<string> {
   const { data, error } = await supabase
     .from('users')
@@ -17,11 +16,10 @@ async function getUserId(username: string): Promise<string> {
     .eq('username', username.toLowerCase().trim())
     .single()
 
-  if (error || !data) throw new Error('Usuario no encontrado')
+  if (error || !data) throw new Error('User not found')
   return data.id
 }
 
-// Guarda una entrada nueva
 export async function createEntry(
   username: string,
   entry: Entry,
@@ -38,7 +36,6 @@ export async function createEntry(
   if (error) throw new Error(error.message)
 }
 
-// Obtiene y descifra todas las entradas de un usuario
 export async function getEntries(
   username: string,
   vaultKey: CryptoKey
@@ -54,18 +51,15 @@ export async function getEntries(
   if (error) throw new Error(error.message)
   if (!data) return []
 
-  const entries = await Promise.all(
+  return Promise.all(
     data.map(async (row) => {
       const decrypted = await decrypt(row.encrypted_data, vaultKey)
       const entry = JSON.parse(decrypted) as Entry
       return { ...entry, id: row.id }
     })
   )
-
-  return entries
 }
 
-// Actualiza una entrada existente
 export async function updateEntry(
   entryId: string,
   entry: Entry,
@@ -84,7 +78,6 @@ export async function updateEntry(
   if (error) throw new Error(error.message)
 }
 
-// Borra una entrada
 export async function deleteEntry(entryId: string): Promise<void> {
   const { error } = await supabase
     .from('entries')
@@ -94,40 +87,33 @@ export async function deleteEntry(entryId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-// Exporta todas las entradas como JSON cifrado (backup portable)
+// Exports the full vault as an encrypted JSON backup
 export async function exportVault(
   username: string,
   vaultKey: CryptoKey
 ): Promise<string> {
   const entries = await getEntries(username, vaultKey)
   const json = JSON.stringify(entries, null, 2)
-  const encrypted = await encrypt(json, vaultKey)
-  return encrypted
+  return encrypt(json, vaultKey)
 }
 
-
-// Importa entradas desde un backup (.txt cifrado)
+// Imports entries from an encrypted backup file, stripping IDs to avoid conflicts
 export async function importVault(
   username: string,
   encryptedBackup: string,
   vaultKey: CryptoKey
 ): Promise<{ success: boolean; count: number }> {
   try {
-    // 1. Usamos 'decrypt' (que ya tienes importado arriba)
     const json = await decrypt(encryptedBackup, vaultKey)
     const entries = JSON.parse(json) as Entry[]
 
-    // 2. Metemos cada entrada en la base de datos
     for (const entry of entries) {
-      // Quitamos el ID para que Supabase genere uno nuevo y no choque
       const { id, ...entryWithoutId } = entry
       await createEntry(username, entryWithoutId, vaultKey)
     }
 
-    // 3. Devolvemos el contador para que el alert de la web funcione
     return { success: true, count: entries.length }
   } catch (e) {
-    console.error("Error al importar:", e)
     throw new Error("No s'ha pogut desxifrar el fitxer. El PIN o l'usuari són incorrectes.")
   }
 }
