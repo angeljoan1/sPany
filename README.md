@@ -1,6 +1,6 @@
 # sPany
 
-A minimal, client-side encrypted password manager built as a personal project. All encryption happens in the browser — the server never sees your passwords in plain text.
+A minimal, client-side encrypted password manager built as a personal project. All encryption happens in the browser the server never sees your passwords in plain text.
 
 Live at [claus.angeljoan.com](https://claus.angeljoan.com)
 
